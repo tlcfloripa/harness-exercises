@@ -8,6 +8,18 @@ import { client, MODEL, textOf } from "@harness/client";
 // arquitetural — ela vira gargalo. Aqui o mesmo agente de sumarização roda em
 // dois modos sobre o MESMO texto: restrito (regras rígidas demais) e calibrado
 // (só o essencial).
+//
+// O QUE ESTE SCRIPT FAZ, PASSO A PASSO:
+//   1. Usa um texto de entrada cheio de nuance (trade-offs, ressalvas, uma
+//      recomendação condicional).
+//   2. Define dois system prompts: um RESTRITO (16 regras rígidas) e um CALIBRADO
+//      (só o essencial). O texto e o modelo são os mesmos nos dois.
+//   3. Sumariza o texto com cada um dos dois prompts.
+//   4. Conta, em cada resumo, quantos "marcadores de nuance" sobreviveram
+//      (palavras como "mas", "porém", "trade-off", "renegociar"...).
+//   5. Mostra os dois resumos lado a lado e lista o que o modo restrito sacrificou.
+//   6. Conclui: harness mal calibrado (rígido demais) destrói a informação que
+//      mais importa — é tão problemático quanto não ter harness nenhum.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Texto com nuance de propósito: tem trade-offs, ressalvas e uma recomendação

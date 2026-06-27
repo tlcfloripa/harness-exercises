@@ -10,9 +10,23 @@ import { MODEL } from "@harness/client";
 // problema, resolvido com e sem harness, mostra uma diferença gritante de taxa
 // de sucesso. A capacidade do modelo é a mesma nos dois lados — o que muda é a
 // estrutura ao redor.
+//
+// Este arquivo é o ORQUESTRADOR (o `npm start`). A lógica de cada lado mora em
+// arquivos separados, para a comparação ficar honesta:
+//   • schema.ts          — o contrato (zod), o texto e o prompt base ÚNICO.
+//   • without-harness.ts — a chamada nua: pede, faz JSON.parse, entrega.
+//   • with-harness.ts    — a mesma chamada + strip + zod + retry + fallback.
+//
+// O QUE ESTE SCRIPT FAZ, PASSO A PASSO:
+//   1. Roda o lado SEM harness N vezes; conta quantas saídas, por sorte, batem o
+//      contrato (validando com o MESMO schema, só para ter uma régua).
+//   2. Roda o lado COM harness N vezes; cada execução tenta validar, faz retry
+//      devolvendo o erro ao modelo e, no pior caso, cai num fallback válido.
+//   3. Imprime as taxas de sucesso lado a lado.
+//   4. Conclui: o modelo é o mesmo; a confiabilidade vem da estrutura ao redor.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const N = 5;
+const N = 5; // quantas vezes rodamos cada lado, para comparar taxas de sucesso
 
 function divider(label = ""): string {
   const line = "─".repeat(78);

@@ -40,3 +40,27 @@ npm run with
 
 Confiabilidade não se compra com dinheiro (modelo maior). Compra-se com
 restrição em volta do mesmo modelo.
+
+## Resultado testado
+
+> Execução real em `2026-06-27` · modelo `claude-sonnet-4-6` · 5 execuções de cada
+> lado. Não-determinístico; rodada representativa.
+
+```
+SEM HARNESS · chamada nua + JSON.parse
+  run 1..5: ✘ FALHA — nem parseou (Unexpected token '`', "```json ...)
+
+COM HARNESS · saída estruturada + zod + retry + fallback
+  run 1..5: ✔ OK em 1 tentativa(s)
+
+TAXA DE SUCESSO
+SEM harness · output conforme o contrato : 0/5  (0%)
+COM harness · validado sem fallback      : 5/5  (100%)
+COM harness · conforme o schema (incl. fallback) : 5/5  (100%)
+```
+
+Mesmo modelo, mesmo prompt base: **0/5 sem harness vs. 5/5 com harness**. Nesta
+rodada, as 5 falhas do lado cru foram todas pelo mesmo motivo — o modelo embrulhou
+o JSON em cercas ` ```json `, e o `JSON.parse` direto explodiu no primeiro
+caractere. Do lado com harness, o strip de cercas + validação zod bastaram: todas
+as runs passaram **na 1ª tentativa**, sem precisar de retry nem do fallback.

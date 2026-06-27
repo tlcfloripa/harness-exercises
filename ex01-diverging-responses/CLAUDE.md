@@ -27,7 +27,7 @@ vem justamente de não dizer ao modelo qual schema usar.
 
 ## Arquivos
 
-- `src/index.ts` — o experimento completo.
+- `src/exercise.ts` — o experimento completo.
 
 O cliente Anthropic + carregamento do `.env` vem de `@harness/client`
 (`packages/client`), compartilhado por todos os exercícios via npm workspace.

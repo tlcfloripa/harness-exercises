@@ -34,7 +34,7 @@ Fable 5 retornam HTTP 400 para `temperature` — mantenha o default do `.env`.
 
 ## Arquivos
 
-- `src/index.ts` — cadeia de 3 passos × 3 execuções + análise da cascata.
+- `src/exercise.ts` — cadeia de 3 passos × 3 execuções + análise da cascata.
 
 O cliente Anthropic + carregamento do `.env` vem de `@harness/client`
 (`packages/client`), compartilhado por todos os exercícios via npm workspace.

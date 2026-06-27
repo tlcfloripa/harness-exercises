@@ -34,3 +34,22 @@ npm start
 
 Esse é o argumento para conter a autonomia: gates, validação por schema e limite
 de loops existem porque toda chamada autônoma abre um fork de variância.
+
+## Resultado testado
+
+> Execução real em `2026-06-27` · modelo `claude-sonnet-4-6` · `temperature: 1.0`
+> · 3 cadeias em paralelo. Não-determinístico por design; rodada representativa.
+
+```
+ANÁLISE DA CASCATA
+Similaridade média entre as cadeias, passo a passo:
+  passo 1 · plano          █████████░░░░░░░░░░░ 47%
+  passo 2 · decomposição   ██████░░░░░░░░░░░░░░ 31%
+  passo 3 · risco          ██░░░░░░░░░░░░░░░░░░  9%
+```
+
+Partindo de uma ideia-semente **comum**, a similaridade entre as três cadeias
+caiu de **47% → 31% → 9%** — uma queda de **38 pontos** em apenas 3 passos. No
+passo 1 as cadeias ainda concordavam (todas escolheram a câmera frontal); no
+passo 3 cada uma elegeu uma sub-tarefa de risco diferente. Nenhum passo
+individual pareceu errado; a trajetória inteira é que divergiu.

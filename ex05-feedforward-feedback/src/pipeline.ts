@@ -11,6 +11,22 @@ import { runSensors } from "./sensors";
 // sabe que ele errou.
 //
 // O pipeline orquestra:  Guides  →  Model Call  →  Sensors
+//
+// As duas camadas vivem em arquivos separados de propósito (a separação física é
+// o ponto pedagógico):
+//   • guides.ts  — feedforward: o que entra no system prompt ANTES da chamada.
+//   • sensors.ts — feedback: as checagens que rodam DEPOIS da resposta.
+//
+// O QUE ESTE SCRIPT FAZ, PASSO A PASSO:
+//   1. Pega uma mensagem de cliente (sem números/datas, para flagrar invenção).
+//   2. Roda a mesma tarefa em TRÊS configurações:
+//        a) sem guides, sem sensors  — o agente erra e ninguém percebe;
+//        b) sem guides, com sensors  — erra, mas os sensores detectam;
+//        c) com guides e com sensors — previne o erro E ainda verifica.
+//   3. Para cada configuração, imprime o que cada camada fez (guides aplicados ou
+//      não, resposta crua do modelo, resultado de cada sensor).
+//   4. Conclui: feedforward e feedback são complementares; a contenção real só
+//      aparece com as duas juntas.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Mensagem propositalmente sem números/datas: se o modelo inventar um valor ou

@@ -9,8 +9,26 @@ import { client, MODEL, textOf } from "@harness/client";
 // Call. Tudo ao redor (Context Manager, Permission Gate, Tool Execution) é código
 // determinístico, escrito à mão. Aqui o loop do agente é construído na unha para
 // deixar essa separação explícita.
+//
+// O QUE ESTE SCRIPT FAZ, PASSO A PASSO (este É o loop do agente):
+//   1. [Context Manager] mantém o histórico da conversa (um array de mensagens).
+//   2. [Model Call] envia o histórico ao modelo — a ÚNICA etapa probabilística.
+//   3. [Tool Use?] checa, por código, se a resposta é uma chamada de ferramenta
+//      (um JSON com campo "tool") ou texto final.
+//   4. [Permission Gate] se for ferramenta, confere contra uma allowlist HARDCODED;
+//      o que não estiver nela é recusado.
+//   5. [Tool Execution] executa a ferramenta permitida (busca no catálogo ou conta).
+//   6. [Result] devolve o resultado ao histórico e volta ao passo 1.
+//   O loop encerra quando o modelo responde texto puro, ou ao bater MAX_ITERATIONS.
+//
+// Repare que NENHUMA dessas etapas, exceto o Model Call, "pensa". Elas roteiam,
+// checam e executam — é tudo código determinístico do engenheiro.
+//
+// Este exercício usa o SDK oficial só para os TIPOS das mensagens; o loop é nosso.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Trava de segurança: nunca deixamos o agente loopar para sempre. Conter a
+// autonomia com um teto de iterações também é trabalho do harness.
 const MAX_ITERATIONS = 6;
 
 // ── Ferramentas (Tool Execution) — determinístico ───────────────────────────

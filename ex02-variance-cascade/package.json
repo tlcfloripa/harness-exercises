@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx src/index.ts"
+    "start": "tsx src/exercise.ts"
   },
   "dependencies": {
     "@harness/client": "^1.0.0"

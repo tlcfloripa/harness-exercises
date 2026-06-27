@@ -6,8 +6,21 @@ import { client, MODEL, textOf } from "@harness/client";
 // Conceito (1) e (3): o mesmo prompt, rodado N vezes contra a API CRUA, produz
 // respostas estruturalmente diferentes. Capacidade e variância vêm da mesma
 // fonte. Aqui NÃO há schema enforcement, retry ou validação. É a API nua.
+//
+// O QUE ESTE SCRIPT FAZ, PASSO A PASSO:
+//   1. Define um texto de entrada deliberadamente ambíguo (sem schema pedido).
+//   2. Dispara o MESMO prompt N vezes em paralelo direto contra a API da Anthropic.
+//   3. Para cada resposta, tenta extrair o JSON e lista as chaves que vieram.
+//   4. Imprime as N respostas lado a lado.
+//   5. Monta uma "matriz de presença de campos" (quais chaves apareceram em
+//      cada resposta) e conta quantas ESTRUTURAS distintas surgiram.
+//   6. Conclui: para o mesmo input, sem harness, o formato de saída é imprevisível.
+//
+// Por que sem harness? Porque o ponto pedagógico é VER a variância crua. Schema,
+// retry e validação (o harness) só entram a partir do ex03.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Quantas vezes vamos repetir o mesmo prompt para comparar as respostas.
 const N = 5;
 
 // Texto deliberadamente ambíguo: nenhum schema foi especificado, então cada
@@ -22,11 +35,12 @@ de automação, e comentou que a decisão final passa pelo chefe dela.
 
 const PROMPT = `Extraia os dados estruturados deste texto em JSON.\n\n${TEXTO_AMBIGUO}`;
 
+// Estrutura que guarda o resultado de UMA execução, para podermos comparar depois.
 interface RunResult {
-  index: number;
-  raw: string;
-  parsed: Record<string, unknown> | null;
-  keys: string[];
+  index: number; // número da execução (1..N), só para rotular na saída
+  raw: string; // o texto bruto que o modelo devolveu
+  parsed: Record<string, unknown> | null; // o JSON já parseado, ou null se não deu
+  keys: string[]; // as chaves do JSON — é o que usamos para medir divergência
 }
 
 function stripFences(text: string): string {
@@ -36,13 +50,19 @@ function stripFences(text: string): string {
   return (fenced ? fenced[1] : text).trim();
 }
 
+// Faz UMA chamada à API e empacota o resultado num RunResult.
 async function runOnce(index: number): Promise<RunResult> {
+  // client.messages.create é a chamada crua à API da Anthropic. Não há nenhuma
+  // camada nossa entre o prompt e a resposta — é exatamente esse "nada" que o
+  // exercício quer expor.
   const message = await client.messages.create({
     model: MODEL,
     max_tokens: 1024,
     messages: [{ role: "user", content: PROMPT }],
   });
 
+  // textOf() é um helper que só extrai o texto da resposta (a API devolve um
+  // objeto com blocos de conteúdo). Aqui pegamos o texto cru, sem tratar nada.
   const raw = textOf(message);
   let parsed: Record<string, unknown> | null = null;
   try {
@@ -77,7 +97,11 @@ async function main() {
   }
 
   // ── Métrica de divergência ─────────────────────────────────────────────────
+  // Une todas as chaves vistas em qualquer resposta (sem repetir) e ordena.
   const allKeys = Array.from(new Set(results.flatMap((r) => r.keys))).sort();
+  // Cada resposta vira uma "assinatura" = seu conjunto ordenado de chaves. Quantas
+  // assinaturas distintas existem = quantos formatos diferentes o modelo produziu
+  // para o MESMO input. Usar um Set elimina duplicatas automaticamente.
   const structures = new Set(
     results.map((r) => (r.parsed ? JSON.stringify(r.keys.slice().sort()) : "ERRO")),
   );

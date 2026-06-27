@@ -12,9 +12,23 @@ import { client, MODEL, textOf } from "@harness/client";
 // partem de uma MESMA ideia-semente fixa. Assim o passo 1 começa com variância
 // baixa (alta similaridade entre as cadeias) e a divergência CRESCE a cada passo.
 // temperature alta (1.0) para tornar o efeito visível.
+//
+// O QUE ESTE SCRIPT FAZ, PASSO A PASSO:
+//   1. Parte de uma única ideia-semente (SEED), idêntica para todas as cadeias.
+//   2. Define uma cadeia de 3 passos onde o output de um passo é o input do próximo
+//      (plano → decomposição em sub-tarefas → escolha do maior risco).
+//   3. Roda essa MESMA cadeia 3 vezes em paralelo, sem nenhum gate entre os passos.
+//   4. Em cada passo, mede a similaridade média entre as 3 cadeias (índice de
+//      Jaccard sobre as palavras) — um número de 0% a 100%.
+//   5. Mostra a similaridade caindo passo a passo: a variância se multiplica.
+//   6. Conclui: autonomia encadeada sem contenção transforma diferenças mínimas
+//      em trajetórias completamente distintas.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CHAINS = 3;
+const CHAINS = 3; // quantas vezes rodamos a cadeia inteira, para poder comparar
+// temperature controla o quão "aleatório" é o sampling do modelo. 1.0 é alto:
+// favorece a divergência, o que torna a cascata visível. ATENÇÃO: exige um modelo
+// que aceite sampling (família 4.x Sonnet/Haiku); Opus 4.7/4.8 e Fable 5 dão HTTP 400.
 const TEMPERATURE = 1.0;
 
 // Âncora comum a todas as cadeias: a variância nasce baixa porque o ponto de
@@ -67,6 +81,8 @@ async function runChain(): Promise<string[]> {
 }
 
 // ── Métrica de divergência: similaridade entre cadeias por passo ──────────────
+// Quebra um texto no conjunto de palavras distintas (minúsculas, sem pontuação,
+// ignorando palavras com 2 letras ou menos). É a base para comparar dois textos.
 function wordSet(text: string): Set<string> {
   return new Set(
     text
@@ -76,6 +92,9 @@ function wordSet(text: string): Set<string> {
   );
 }
 
+// Índice de Jaccard: mede o quanto dois textos "se parecem" em vocabulário.
+// É (palavras em comum) / (total de palavras distintas). 1 = idênticos, 0 = nada
+// em comum. Simples de propósito — não precisa ser semântico para a cascata aparecer.
 function jaccard(a: string, b: string): number {
   const A = wordSet(a);
   const B = wordSet(b);

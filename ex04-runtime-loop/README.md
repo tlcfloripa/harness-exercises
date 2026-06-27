@@ -40,3 +40,27 @@ npm start
   e o loop continua.
 
 Ferramentas, allowlist, limite de iterações — nada disso é o modelo. É o harness.
+
+## Resultado testado
+
+> Execução real em `2026-06-27` · modelo `claude-sonnet-4-6`. A tarefa: somar um
+> teclado e um mouse do catálogo e aplicar 10% de desconto.
+
+```
+ITERAÇÃO 1 · Model Call → tool "buscar_produto" {"query":"teclado"}
+            Permission Gate ✔ permitida → [{"nome":"Teclado mecânico","preco":350}]
+ITERAÇÃO 2 · Model Call → tool "buscar_produto" {"query":"mouse"}
+            Permission Gate ✔ permitida → [{"nome":"Mouse sem fio","preco":120}]
+ITERAÇÃO 3 · Model Call → tool "calcular" {"expressao":"(350+120)*0.9"}
+            Permission Gate ✔ permitida → 423
+ITERAÇÃO 4 · Model Call → texto puro detectado. SAINDO DO LOOP.
+
+RESPOSTA FINAL: Total final R$ 423,00 (subtotal R$ 470,00 − 10%).
+```
+
+O loop rodou **4 iterações**: 3 chamadas de ferramenta (todas dentro da allowlist,
+liberadas pelo gate) e 1 turno final de texto puro que encerrou o loop. O harness
+não calculou nada — só roteou JSON, consultou a allowlist, executou e devolveu o
+resultado ao contexto. O raciocínio (decidir buscar cada produto, montar a
+expressão `(350+120)*0.9`) ficou inteiro dentro do Model Call. Nesta rodada o
+modelo só usou ferramentas permitidas, então o gate não precisou rejeitar nenhuma.
