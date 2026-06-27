@@ -1,4 +1,4 @@
-import { client, MODEL, textOf, debugApiCall } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall, c, heading, rule } from "@harness/client";
 import { buildSystemPrompt } from "./guides";
 import { runSensors } from "./sensors";
 
@@ -24,7 +24,8 @@ import { runSensors } from "./sensors";
 //        b) sem guides, com sensors  — erra, mas os sensores detectam;
 //        c) com guides e com sensors — previne o erro E ainda verifica.
 //   3. Para cada configuração, imprime o que cada camada fez (guides aplicados ou
-//      não, resposta crua do modelo, resultado de cada sensor).
+//      não, resultado de cada sensor). A resposta crua do modelo não é
+//      reimpressa: o [debug] do cliente já loga cada chamada.
 //   4. Conclui: feedforward e feedback são complementares; a contenção real só
 //      aparece com as duas juntas.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,11 +37,6 @@ const MENSAGEM_CLIENTE =
   "resolver pelo app e não consegui. Preciso disso resolvido logo, está me " +
   "atrapalhando o trabalho.";
 
-function divider(label = ""): string {
-  const line = "─".repeat(78);
-  return label ? `\n${label}\n${line}` : line;
-}
-
 interface Config {
   label: string;
   useGuides: boolean;
@@ -48,11 +44,17 @@ interface Config {
 }
 
 async function runConfig({ label, useGuides, useSensors }: Config) {
-  console.log(divider(`CONFIG · ${label}`));
+  console.log(rule(`CONFIG · ${label}`));
 
   // ── Camada 1: GUIDES (feedforward) ──────────────────────────────────────────
   const system = buildSystemPrompt(useGuides);
-  console.log(`[Guides]  ${useGuides ? "APLICADOS (instruções + conhecimento + restrições)" : "AUSENTES (orientação vaga)"}`);
+  console.log(
+    `${c.bold(c.magenta("[Guides] "))} ${
+      useGuides
+        ? c.green("APLICADOS (instruções + conhecimento + restrições)")
+        : c.dim("AUSENTES (orientação vaga)")
+    }`,
+  );
 
   // ── Camada 2: MODEL CALL ────────────────────────────────────────────────────
   const response = await client.messages.create({
@@ -63,46 +65,45 @@ async function runConfig({ label, useGuides, useSensors }: Config) {
   });
   const raw = textOf(response).trim();
   debugApiCall({ system, messages: [{ role: "user", content: MENSAGEM_CLIENTE }] }, raw, label);
-  console.log(`[Model]   resposta crua:`);
-  console.log(
-    raw
-      .split("\n")
-      .map((l) => "          " + l)
-      .join("\n"),
-  );
+  // A resposta crua não é reimpressa aqui: o [debug] acima já a loga (rotulada
+  // por config). O exercício foca no que cada CAMADA fez — guides e sensors.
+  console.log(`${c.bold(c.cyan("[Model] "))} ${c.dim("respondeu (conteúdo cru no [debug] acima)")}`);
 
   // ── Camada 3: SENSORS (feedback) ────────────────────────────────────────────
   if (!useSensors) {
-    console.log(`[Sensors] AUSENTES — nenhuma checagem. O que saiu, saiu (e ninguém sabe se está certo).`);
+    console.log(
+      `${c.bold(c.yellow("[Sensors]"))} ${c.dim("AUSENTES — nenhuma checagem. O que saiu, saiu (e ninguém sabe se está certo).")}`,
+    );
     return;
   }
 
   const resultados = runSensors(raw, MENSAGEM_CLIENTE);
-  console.log(`[Sensors] rodando ${resultados.length} sensores pós-resposta:`);
+  console.log(`${c.bold(c.blue("[Sensors]"))} rodando ${c.bold(String(resultados.length))} sensores pós-resposta:`);
   for (const s of resultados) {
-    console.log(`          ${s.ok ? "✔" : "✘"} ${s.nome.padEnd(11)} — ${s.detalhe}`);
+    const marca = s.ok ? c.green("✔") : c.red("✘");
+    console.log(`          ${marca} ${c.bold(s.nome.padEnd(11))} — ${c.dim(s.detalhe)}`);
   }
   const falhas = resultados.filter((s) => !s.ok);
   console.log(
     falhas.length === 0
-      ? "          → todos os sensores passaram. Output liberado."
-      : `          → ${falhas.length} sensor(es) acusaram problema. CONTIDO antes de virar dado ruim.`,
+      ? c.green("          → todos os sensores passaram. Output liberado.")
+      : c.yellow(`          → ${falhas.length} sensor(es) acusaram problema. CONTIDO antes de virar dado ruim.`),
   );
 }
 
 async function main() {
-  console.log("═".repeat(78));
-  console.log(`ex05 · Feedforward & Feedback · modelo: ${MODEL}`);
-  console.log("═".repeat(78));
-  console.log("MENSAGEM DO CLIENTE:");
-  console.log(MENSAGEM_CLIENTE);
+  heading("ex05 · Feedforward & Feedback", `modelo: ${MODEL}`);
+  console.log(
+    `\nMesma ${c.bold("mensagem de cliente")} (sem números/datas) nas três configurações.\n` +
+      `O prompt completo aparece no ${c.dim("[debug]")} de cada chamada.`,
+  );
 
   // Três configurações para ver as camadas isoladas e juntas.
   await runConfig({ label: "sem guides · sem sensors", useGuides: false, useSensors: false });
   await runConfig({ label: "sem guides · COM sensors (detecta, mas não previne)", useGuides: false, useSensors: true });
   await runConfig({ label: "COM guides · COM sensors (previne E verifica)", useGuides: true, useSensors: true });
 
-  console.log(divider("LEITURA"));
+  console.log(rule("LEITURA"));
   console.log(
     "Guides e sensors são camadas opostas e complementares. Guides (feedforward)\n" +
       "reduzem a chance do erro antes da ação. Sensors (feedback) flagram o erro\n" +

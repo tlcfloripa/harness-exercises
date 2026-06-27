@@ -1,4 +1,4 @@
-import { client, MODEL, textOf, debugApiCall } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall, c, heading, rule } from "@harness/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ex01 — Diverging Responses
@@ -11,10 +11,13 @@ import { client, MODEL, textOf, debugApiCall } from "@harness/client";
 //   1. Define um texto de entrada deliberadamente ambíguo (sem schema pedido).
 //   2. Dispara o MESMO prompt N vezes em paralelo direto contra a API da Anthropic.
 //   3. Para cada resposta, tenta extrair o JSON e lista as chaves que vieram.
-//   4. Imprime as N respostas lado a lado.
-//   5. Monta uma "matriz de presença de campos" (quais chaves apareceram em
+//   4. Monta uma "matriz de presença de campos" (quais chaves apareceram em
 //      cada resposta) e conta quantas ESTRUTURAS distintas surgiram.
-//   6. Conclui: para o mesmo input, sem harness, o formato de saída é imprevisível.
+//   5. Conclui: para o mesmo input, sem harness, o formato de saída é imprevisível.
+//
+// As respostas cruas de cada execução não são reimpressas aqui: o [debug] do
+// cliente já loga requisição e resposta de cada chamada. Este script foca na
+// MÉTRICA de divergência, que é a lógica do exercício.
 //
 // Por que sem harness? Porque o ponto pedagógico é VER a variância crua. Schema,
 // retry e validação (o harness) só entram a partir do ex03.
@@ -76,26 +79,16 @@ async function runOnce(index: number): Promise<RunResult> {
   return { index, raw, parsed, keys: parsed ? Object.keys(parsed) : [] };
 }
 
-function divider(label = ""): string {
-  const line = "─".repeat(78);
-  return label ? `\n${label}\n${line}` : line;
-}
-
 async function main() {
-  console.log(divider(`ex01 · Diverging Responses · modelo: ${MODEL}`));
-  console.log(`Mesmo prompt, ${N} execuções em paralelo, API crua.\n`);
-  console.log("TEXTO DE ENTRADA (ambíguo de propósito):");
-  console.log(TEXTO_AMBIGUO);
+  heading("ex01 · Diverging Responses", `modelo: ${MODEL} · ${N} execuções em paralelo · API crua`);
+  console.log(
+    `\nEnviando o mesmo prompt de extração sobre um ${c.bold("texto ambíguo de lead")} ` +
+      `(sem schema pedido).\nO prompt completo aparece no ${c.dim("[debug]")} de cada execução.`,
+  );
 
   const results = await Promise.all(
     Array.from({ length: N }, (_, i) => runOnce(i + 1)),
   );
-
-  // ── Respostas lado a lado ──────────────────────────────────────────────────
-  for (const r of results) {
-    console.log(divider(`RESPOSTA #${r.index}${r.parsed ? "" : "  (não-parseável)"}`));
-    console.log(r.raw.trim());
-  }
 
   // ── Métrica de divergência ─────────────────────────────────────────────────
   // Une todas as chaves vistas em qualquer resposta (sem repetir) e ordena.
@@ -107,28 +100,31 @@ async function main() {
     results.map((r) => (r.parsed ? JSON.stringify(r.keys.slice().sort()) : "ERRO")),
   );
 
-  console.log(divider("MATRIZ DE PRESENÇA DE CAMPOS"));
+  console.log(rule("MATRIZ DE PRESENÇA DE CAMPOS"));
   const header = ["campo".padEnd(22), ...results.map((r) => `#${r.index}`)].join(" ");
-  console.log(header);
-  console.log("─".repeat(header.length));
+  console.log(c.bold(header));
+  console.log(c.dim("─".repeat(header.length)));
   for (const key of allKeys) {
     const row = [
-      key.padEnd(22),
-      ...results.map((r) => (r.keys.includes(key) ? " ✔" : " ·")),
+      c.cyan(key.padEnd(22)),
+      ...results.map((r) => (r.keys.includes(key) ? c.green(" ✔") : c.dim(" ·"))),
     ].join(" ");
     console.log(row);
   }
 
-  console.log(divider("DIVERGÊNCIA"));
-  console.log(`Campos distintos vistos no total : ${allKeys.length}`);
-  console.log(`Estruturas (conjuntos de chaves) distintas entre as ${N} respostas : ${structures.size}`);
+  console.log(rule("DIVERGÊNCIA"));
+  console.log(`Campos distintos vistos no total : ${c.bold(String(allKeys.length))}`);
+  console.log(
+    `Estruturas (conjuntos de chaves) distintas entre as ${N} respostas : ` +
+      `${c.bold(c.yellow(String(structures.size)))}`,
+  );
   const failures = results.filter((r) => !r.parsed).length;
-  if (failures > 0) console.log(`Respostas não-parseáveis : ${failures}/${N}`);
+  if (failures > 0) console.log(`Respostas não-parseáveis : ${c.red(`${failures}/${N}`)}`);
   console.log(
     structures.size === 1 && failures === 0
-      ? "\nDessa vez convergiu. Rode de novo — a variância é termodinâmica, não some.\n"
-      : `\n${structures.size} formatos diferentes para o MESMO input. Sem harness, ` +
-          "você não sabe qual deles vai chegar no seu banco de dados.\n",
+      ? c.green("\nDessa vez convergiu. Rode de novo — a variância é termodinâmica, não some.\n")
+      : `\n${c.bold(c.yellow(String(structures.size) + " formatos diferentes"))} para o MESMO input. ` +
+          "Sem harness,\nvocê não sabe qual deles vai chegar no seu banco de dados.\n",
   );
 }
 

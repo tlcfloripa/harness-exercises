@@ -11,9 +11,12 @@ da mesma fonte.
 
 - Envia **o mesmo** prompt de extração (texto ambíguo, sem schema definido) para
   a API **5 vezes em paralelo**.
-- Imprime as respostas lado a lado.
 - Calcula uma métrica de divergência: matriz de presença/ausência de campos e
   número de estruturas JSON distintas.
+
+As respostas cruas de cada execução não são reimpressas pelo exercício — o
+`[debug]` do `@harness/client` já loga requisição e resposta de cada chamada. A
+saída do exercício foca na métrica de divergência.
 
 ## Restrição arquitetural (NÃO violar)
 

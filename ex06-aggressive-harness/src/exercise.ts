@@ -1,4 +1,4 @@
-import { client, MODEL, textOf, debugApiCall } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall, c, bar, heading, rule } from "@harness/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ex06 — Aggressive Harness
@@ -17,7 +17,8 @@ import { client, MODEL, textOf, debugApiCall } from "@harness/client";
 //   3. Sumariza o texto com cada um dos dois prompts.
 //   4. Conta, em cada resumo, quantos "marcadores de nuance" sobreviveram
 //      (palavras como "mas", "porém", "trade-off", "renegociar"...).
-//   5. Mostra os dois resumos lado a lado e lista o que o modo restrito sacrificou.
+//   5. Compara os dois pela métrica de nuance e lista o que o modo restrito
+//      sacrificou. Os resumos crus não são reimpressos — o [debug] já os loga.
 //   6. Conclui: harness mal calibrado (rígido demais) destrói a informação que
 //      mais importa — é tão problemático quanto não ter harness nenhum.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,42 +107,47 @@ function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
-function divider(label = ""): string {
-  const line = "═".repeat(78);
-  return label ? `\n${label}\n${line}` : line;
-}
-
 async function main() {
-  console.log(divider(`ex06 · Aggressive Harness · modelo: ${MODEL}`));
-  console.log("Mesmo texto, mesmo modelo, dois harnesses de sumarização.\n");
-  console.log("TEXTO DE ENTRADA (cheio de nuance):");
-  console.log(TEXTO);
+  heading("ex06 · Aggressive Harness", `modelo: ${MODEL} · mesmo texto, dois harnesses de sumarização`);
+  console.log(
+    `\nResumindo um ${c.bold("texto cheio de nuance")} (trade-offs, ressalvas, recomendação ` +
+      `condicional)\ncom dois system prompts. Os prompts e resumos completos estão no ${c.dim("[debug]")}.`,
+  );
 
   const [restrito, calibrado] = await Promise.all([
     summarize(SYSTEM_RESTRITO, "restrito"),
     summarize(SYSTEM_CALIBRADO, "calibrado"),
   ]);
 
-  console.log(divider("MODO RESTRITO · 16 regras rígidas"));
-  console.log(restrito);
-  console.log(`\n  palavras: ${wordCount(restrito)} · marcadores de nuance preservados: ${nuanceHits(restrito).length}`);
-
-  console.log(divider("MODO CALIBRADO · só o essencial"));
-  console.log(calibrado);
-  console.log(`\n  palavras: ${wordCount(calibrado)} · marcadores de nuance preservados: ${nuanceHits(calibrado).length}`);
-
-  // ── O que foi sacrificado ───────────────────────────────────────────────────
+  // Os dois resumos não são reimpressos aqui: o [debug] do cliente já loga cada
+  // chamada (rotulada "restrito"/"calibrado"). O exercício foca na MÉTRICA — quanta
+  // nuance cada harness preservou — e no que o modo restrito sacrificou.
   const noCalibrado = nuanceHits(calibrado);
   const noRestrito = nuanceHits(restrito);
+  // Quanta nuance o texto ORIGINAL carrega = denominador da barra.
+  const baseNuance = nuanceHits(TEXTO).length || 1;
+
+  const metrica = (nome: string, resumo: string, hits: string[]) => {
+    console.log(rule(nome));
+    console.log(`  nuance preservada  ${bar(hits.length / baseNuance)} ${c.bold(`${hits.length}/${baseNuance}`)}`);
+    console.log(`  ${c.dim(`palavras: ${wordCount(resumo)} · marcadores: ${hits.join(", ") || "—"}`)}`);
+  };
+  metrica("MODO RESTRITO · 16 regras rígidas", restrito, noRestrito);
+  metrica("MODO CALIBRADO · só o essencial", calibrado, noCalibrado);
+
+  // ── O que foi sacrificado ───────────────────────────────────────────────────
   const sacrificado = noCalibrado.filter((m) => !noRestrito.includes(m));
 
-  console.log(divider("O QUE O HARNESS AGRESSIVO SACRIFICOU"));
+  console.log(rule("O QUE O HARNESS AGRESSIVO SACRIFICOU"));
   console.log(
     "O texto original carrega trade-offs (picos sob carga, suporte que encarece,\n" +
       "dívida técnica) e uma recomendação condicional (monitorar + renegociar).\n",
   );
   if (sacrificado.length > 0) {
-    console.log(`Marcadores de nuance presentes no calibrado e PERDIDOS no restrito: ${sacrificado.join(", ")}`);
+    console.log(
+      `Marcadores de nuance presentes no calibrado e ${c.bold(c.red("PERDIDOS"))} no restrito: ` +
+        c.yellow(sacrificado.join(", ")),
+    );
   }
   console.log(
     "\nO modo restrito produz algo mecânico, truncado e neutro demais: as 16 regras\n" +

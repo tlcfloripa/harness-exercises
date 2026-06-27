@@ -53,12 +53,55 @@ export function textOf(message: Anthropic.Message): string {
     .join("");
 }
 
+// ── Estilo de terminal (ANSI) — helpers de UI compartilhados ──────────────────
+// Puramente cosmético: deixa a saída dos exercícios legível no terminal. NÃO toca
+// no comportamento do modelo nem do harness. Vive aqui (e não em cada pasta) para
+// não duplicar — todos os exercícios importam de @harness/client.
+const sgr = (codigo: string) => (s: string | number) => `\x1b[${codigo}m${s}\x1b[0m`;
+
+export const c = {
+  bold: sgr("1"),
+  dim: sgr("2"),
+  italic: sgr("3"),
+  red: sgr("38;5;203"),
+  green: sgr("38;5;42"),
+  yellow: sgr("38;5;221"),
+  blue: sgr("38;5;75"),
+  cyan: sgr("38;5;80"),
+  magenta: sgr("38;5;176"),
+  gray: sgr("38;5;245"),
+};
+
+/** Barra de progresso colorida por nível (verde alto / amarelo médio / vermelho baixo). */
+export function bar(ratio: number, width = 22): string {
+  const r = Math.max(0, Math.min(1, ratio));
+  const cheio = Math.round(r * width);
+  const tinta = r >= 0.66 ? c.green : r >= 0.33 ? c.yellow : c.red;
+  return tinta("█".repeat(cheio)) + c.dim("░".repeat(width - cheio));
+}
+
+/** Cabeçalho do exercício: título em destaque + subtítulo opcional. */
+export function heading(title: string, subtitle?: string): void {
+  const linha = "━".repeat(78);
+  console.log(c.cyan(linha));
+  console.log(c.bold(c.cyan(`  ${title}`)));
+  if (subtitle) console.log(`  ${c.dim(subtitle)}`);
+  console.log(c.cyan(linha));
+}
+
+/** Divisor de seção: rótulo em negrito + régua. Retorna string (use com console.log). */
+export function rule(label = ""): string {
+  const linha = c.dim("─".repeat(78));
+  return label ? `\n${c.bold(label)}\n${linha}` : linha;
+}
+
 // ── Debug: loga a REQUISIÇÃO e a RESPOSTA crua de cada chamada à API ──────────
-// Em cinza + dim (aspecto "disabled"), para não competir com a saída principal
-// do exercício. É só instrumentação para inspecionar, a cada tentativa, o que
-// foi enviado e o que a API devolveu — NÃO valida, NÃO corrige e NÃO altera o
-// comportamento do modelo nem do harness ao redor.
+// Em cinza (aspecto "disabled"), para não competir com a saída principal do
+// exercício, mas com títulos em negrito e uma linha em branco antes de cada bloco
+// para ficar fácil de ler. É só instrumentação para inspecionar o que foi enviado
+// e o que a API devolveu — NÃO valida, NÃO corrige e NÃO altera o comportamento.
 const DIM_GRAY = "\x1b[38;5;245m";
+const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
 interface DebugRequest {
@@ -68,20 +111,30 @@ interface DebugRequest {
 
 export function debugApiCall(req: DebugRequest, raw: string, contexto?: string): void {
   const rotulo = contexto ? ` · ${contexto}` : "";
-  const linhas: string[] = ["── requisição ──"];
+  // Linha de conteúdo (cinza), título de seção (cinza + negrito) e rótulo de papel.
+  const linha = (s = "") => console.log(`${DIM_GRAY}  │ ${s}${RESET}`);
+  const titulo = (borda: string, s: string) =>
+    console.log(`${BOLD}${DIM_GRAY}  ${borda} ${s}${RESET}`);
+  const papel = (s: string) => `${BOLD}${s}${RESET}${DIM_GRAY}`;
 
+  console.log(""); // espaço entre debugs
+
+  titulo("┌─", `[debug] chamada à API${rotulo}`);
+
+  titulo("├─", "requisição");
   if (req.system) {
-    linhas.push("[system]", ...req.system.split("\n"));
+    linha(papel("[system]"));
+    for (const l of req.system.split("\n")) linha(l);
   }
   for (const m of req.messages) {
     const content =
       typeof m.content === "string" ? m.content : JSON.stringify(m.content, null, 2);
-    linhas.push(`[${m.role}]`, ...content.split("\n"));
+    linha(papel(`[${m.role}]`));
+    for (const l of content.split("\n")) linha(l);
   }
 
-  linhas.push("── resposta ──", ...(raw.trim() || "(resposta vazia)").split("\n"));
+  titulo("├─", "resposta");
+  for (const l of (raw.trim() || "(resposta vazia)").split("\n")) linha(l);
 
-  const corpo = linhas.map((l) => `${DIM_GRAY}  ┊ ${l}${RESET}`).join("\n");
-  console.log(`${DIM_GRAY}  ┌ [debug] chamada à API${rotulo}${RESET}`);
-  console.log(corpo);
+  console.log(`${BOLD}${DIM_GRAY}  └${"─".repeat(40)}${RESET}`);
 }

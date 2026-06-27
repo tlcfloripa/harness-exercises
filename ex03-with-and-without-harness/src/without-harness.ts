@@ -24,8 +24,10 @@ export async function extractWithoutHarness(): Promise<unknown> {
 }
 
 // Permite rodar isolado: `npm run without`
+// O conteúdo cru sai no [debug] da chamada; aqui só sinalizamos se parseou ou
+// estourou — a fragilidade (estourar) é o ponto, não o dump do resultado.
 if (import.meta.url === `file://${process.argv[1]}`) {
   extractWithoutHarness()
-    .then((v) => console.log("Resultado cru:\n", JSON.stringify(v, null, 2)))
+    .then(() => console.log("Parseou sem estourar (conteúdo cru no [debug] acima)."))
     .catch((e) => console.error("Estourou sem harness:", (e as Error).message));
 }

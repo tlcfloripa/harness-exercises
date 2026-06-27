@@ -1,4 +1,4 @@
-import { client, MODEL, textOf, debugApiCall } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall, c, bar, heading, rule } from "@harness/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ex02 — Variance Cascade
@@ -120,59 +120,48 @@ function similaridadeMedia(textos: string[]): number {
   return pares === 0 ? 1 : soma / pares;
 }
 
-function divider(label = ""): string {
-  const line = "═".repeat(78);
-  return label ? `\n${label}\n${line}` : line;
-}
-
-function oneLine(text: string, max = 70): string {
-  const flat = text.replace(/\s+/g, " ").trim();
-  return flat.length > max ? flat.slice(0, max - 1) + "…" : flat;
-}
-
 function pct(x: number): string {
   return `${(x * 100).toFixed(0)}%`;
 }
 
 async function main() {
-  console.log(divider(`ex02 · Variance Cascade · modelo: ${MODEL} · temp ${TEMPERATURE}`));
-  console.log(`${CHAINS} execuções da MESMA cadeia de ${STEPS.length} passos, sem gate entre passos.`);
-  console.log(`Ponto de partida comum (variância baixa na largada): "${SEED}"\n`);
+  heading(
+    "ex02 · Variance Cascade",
+    `modelo: ${MODEL} · temp ${TEMPERATURE} · ${CHAINS} execuções da mesma cadeia de ${STEPS.length} passos, sem gate`,
+  );
+  console.log(
+    `\nMesma ideia-semente para todas as cadeias — variância baixa na largada, ` +
+      `que ${c.bold("cresce")} a cada passo.\nPrompts completos no ${c.dim("[debug]")}.`,
+  );
 
-  const chains = await Promise.all(Array.from({ length: CHAINS }, (_, c) => runChain(c)));
+  const chains = await Promise.all(Array.from({ length: CHAINS }, (_, i) => runChain(i)));
 
-  // ── Árvore de divergência: agrupada por passo ───────────────────────────────
-  const similaridades: number[] = [];
-  for (let s = 0; s < STEPS.length; s++) {
-    console.log(divider(STEPS[s].nome.toUpperCase()));
-    chains.forEach((chain, c) => {
-      console.log(`  cadeia ${String.fromCharCode(65 + c)} ┃ ${oneLine(chain[s])}`);
-    });
-    const sim = similaridadeMedia(chains.map((chain) => chain[s]));
-    similaridades.push(sim);
-    console.log(`         → similaridade média entre as cadeias: ${pct(sim)}`);
-  }
+  // Os textos de cada cadeia/passo não são reimpressos aqui: o [debug] do cliente
+  // já loga cada chamada (rotulada por "cadeia X · passo N"). O exercício foca na
+  // MÉTRICA — a similaridade entre as cadeias caindo passo a passo.
+  const similaridades = STEPS.map((_, s) =>
+    similaridadeMedia(chains.map((chain) => chain[s])),
+  );
 
   // ── Análise da cascata ──────────────────────────────────────────────────────
-  console.log(divider("ANÁLISE DA CASCATA"));
-  console.log("Similaridade média entre as cadeias, passo a passo:");
+  console.log(rule("ANÁLISE DA CASCATA"));
+  console.log(c.dim("Similaridade média entre as cadeias, passo a passo:\n"));
   similaridades.forEach((sim, s) => {
-    const barra = "█".repeat(Math.round(sim * 20)).padEnd(20, "░");
-    console.log(`  ${STEPS[s].nome.padEnd(24)} ${barra} ${pct(sim)}`);
+    console.log(`  ${STEPS[s].nome.padEnd(24)} ${bar(sim)} ${c.bold(pct(sim))}`);
   });
 
   const caiu = similaridades[0] - similaridades[similaridades.length - 1];
   if (caiu > 0.02) {
     console.log(
-      `\nA similaridade caiu ${pct(caiu)} do primeiro ao último passo. Mesmo partindo\n` +
+      `\nA similaridade caiu ${c.bold(c.red(pct(caiu)))} do primeiro ao último passo. Mesmo partindo\n` +
         "de um ponto comum, cada passo autônomo recebe um input já um pouco diferente\n" +
         "do anterior — e a diferença NÃO se mantém: ela se multiplica. Nenhum passo\n" +
         "individual parece errado; a trajetória inteira é que diverge.\n",
     );
   } else {
     console.log(
-      "\nDessa vez a similaridade não caiu muito — raro com temp alta. Rode de novo;\n" +
-        "a cascata costuma aparecer.\n",
+      c.yellow("\nDessa vez a similaridade não caiu muito — raro com temp alta. Rode de novo;\n") +
+        c.yellow("a cascata costuma aparecer.\n"),
     );
   }
   console.log(

@@ -17,8 +17,11 @@ por ser cheio de nuance: trade-offs, ressalvas e uma recomendação condicional)
   nuance), lista fechada de tópicos.
 - **Modo calibrado** — apenas as restrições essenciais ao contexto.
 
-Imprime os dois lado a lado e um comentário explícito do que foi sacrificado:
-quais marcadores de nuance sobreviveram no calibrado mas se perderam no restrito.
+Compara os dois pela métrica de nuance e imprime um comentário explícito do que
+foi sacrificado: quais marcadores de nuance sobreviveram no calibrado mas se
+perderam no restrito. Os resumos crus não são reimpressos pelo exercício — o
+`[debug]` do `@harness/client` já loga cada chamada (rotulada "restrito" /
+"calibrado").
 
 ## Restrições arquiteturais (NÃO violar)
 

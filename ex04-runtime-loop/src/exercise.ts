@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { client, MODEL, textOf, debugApiCall } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall, c, heading } from "@harness/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ex04 — Runtime Loop
@@ -156,28 +156,36 @@ function parseToolCall(text: string): ToolCall | null {
 }
 
 function box(line: string) {
-  console.log(`┃ ${line}`);
+  console.log(`${c.dim("┃")} ${line}`);
 }
+
+// Rótulos dos estágios do runtime, cada um com sua cor — para o fluxo ficar legível.
+const STAGE = {
+  ctx: c.bold(c.magenta("[Context Manager]")),
+  model: c.bold(c.cyan("[Model Call]")),
+  tool: c.bold(c.blue("[Tool Use?]")),
+  gate: c.bold(c.yellow("[Permission Gate]")),
+  exec: c.bold(c.green("[Tool Execution]")),
+};
 
 async function main() {
   const tarefa =
     "Quanto custa, no total, comprar um teclado e um mouse do nosso catálogo? " +
     "Aplique 10% de desconto sobre a soma e me diga o valor final.";
 
-  console.log("═".repeat(78));
-  console.log(`ex04 · Runtime Loop · modelo: ${MODEL}`);
-  console.log("═".repeat(78));
-  console.log(`Tarefa: ${tarefa}`);
-  console.log(`Allowlist de ferramentas: [${[...ALLOWLIST].join(", ")}]`);
+  heading("ex04 · Runtime Loop", `modelo: ${MODEL}`);
+  console.log(`\n${c.bold("Tarefa:")} ${tarefa}`);
+  console.log(`${c.bold("Allowlist de ferramentas:")} ${c.cyan(`[${[...ALLOWLIST].join(", ")}]`)}`);
+  console.log(c.dim("Cada chamada ao modelo é logada no [debug]; abaixo, só o roteamento do runtime."));
 
   // Context Manager: a memória/estado da conversa. Determinístico.
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: tarefa }];
 
   for (let i = 1; i <= MAX_ITERATIONS; i++) {
-    console.log("\n┏━ ITERAÇÃO " + i + " " + "━".repeat(60));
+    console.log("\n" + c.bold(c.blue(`┏━ ITERAÇÃO ${i} `)) + c.dim("━".repeat(60)));
 
     // [Context Manager] monta o prompt a partir do histórico
-    box(`[Context Manager] histórico com ${messages.length} mensagem(ns)`);
+    box(`${STAGE.ctx} histórico com ${c.bold(String(messages.length))} mensagem(ns)`);
 
     // [Model Call] a única parte probabilística do loop
     const response = await client.messages.create({
@@ -188,7 +196,7 @@ async function main() {
     });
     const reply = textOf(response).trim();
     debugApiCall({ system: SYSTEM, messages }, reply, `iteração ${i}`);
-    box(`[Model Call] resposta: ${reply.replace(/\s+/g, " ").slice(0, 64)}`);
+    box(`${STAGE.model} resposta: ${c.dim(reply.replace(/\s+/g, " ").slice(0, 64))}`);
 
     // O modelo "falou": guardamos no histórico (Context Manager)
     messages.push({ role: "assistant", content: reply });
@@ -196,11 +204,9 @@ async function main() {
     // [Tool Use?] roteamento determinístico
     const call = parseToolCall(reply);
     if (!call) {
-      box("[Tool Use?] não — texto puro detectado. SAINDO DO LOOP.");
-      console.log("┗" + "━".repeat(72));
-      console.log("\n" + "─".repeat(78));
-      console.log("RESPOSTA FINAL:\n" + reply);
-      console.log("─".repeat(78));
+      box(`${STAGE.tool} não — texto puro detectado. ${c.green("SAINDO DO LOOP.")}`);
+      box(c.dim("(a resposta final completa está no [debug] desta iteração)"));
+      console.log(c.dim("┗" + "━".repeat(72)));
       console.log(
         "\nRepare: o harness não decidiu nada de inteligente. Ele só checou se a\n" +
           "resposta era JSON, passou pelo gate, executou a ferramenta e devolveu o\n" +
@@ -208,35 +214,35 @@ async function main() {
       );
       return;
     }
-    box(`[Tool Use?] sim — ferramenta "${call.tool}" com args ${JSON.stringify(call.args)}`);
+    box(`${STAGE.tool} sim — ferramenta ${c.cyan(`"${call.tool}"`)} com args ${c.dim(JSON.stringify(call.args))}`);
 
     // [Permission Gate] determinístico — allowlist hardcoded
     if (!ALLOWLIST.has(call.tool)) {
       const erro = `Ferramenta "${call.tool}" NÃO está na allowlist. Recusada pelo Permission Gate.`;
-      box(`[Permission Gate] ✘ REJEITADA — ${erro}`);
+      box(`${STAGE.gate} ${c.bold(c.red("✘ REJEITADA"))} — ${erro}`);
       // Devolve um erro estruturado ao contexto e segue o loop
       messages.push({
         role: "user",
         content: `ERRO_DO_RUNTIME: ${erro} Ferramentas permitidas: ${[...ALLOWLIST].join(", ")}.`,
       });
-      console.log("┗" + "━".repeat(72));
+      console.log(c.dim("┗" + "━".repeat(72)));
       continue;
     }
-    box(`[Permission Gate] ✔ permitida`);
+    box(`${STAGE.gate} ${c.green("✔ permitida")}`);
 
     // [Tool Execution] roda em "sandbox" (aqui, função pura local)
     const resultado = FERRAMENTAS[call.tool](call.args);
-    box(`[Tool Execution] resultado: ${resultado.slice(0, 64)}`);
+    box(`${STAGE.exec} resultado: ${c.dim(resultado.slice(0, 64))}`);
 
     // [Result] adiciona ao contexto e volta ao topo do loop
     messages.push({
       role: "user",
       content: `Resultado da ferramenta ${call.tool}: ${resultado}`,
     });
-    console.log("┗" + "━".repeat(72));
+    console.log(c.dim("┗" + "━".repeat(72)));
   }
 
-  console.log(`\n⚠️  Limite de ${MAX_ITERATIONS} iterações atingido sem resposta final.`);
+  console.log(c.yellow(`\n⚠️  Limite de ${MAX_ITERATIONS} iterações atingido sem resposta final.`));
   console.log("O limite de loops também é parte do harness: contém a autonomia.");
 }
 
