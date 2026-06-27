@@ -1,0 +1,25 @@
+{
+  "name": "harness-exercises",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Exercícios práticos do workshop \"Harness Engineering\" — TLC Core Floripa",
+  "type": "module",
+  "workspaces": [
+    "packages/client",
+    "ex01-diverging-responses",
+    "ex02-variance-cascade",
+    "ex03-with-and-without-harness",
+    "ex04-runtime-loop",
+    "ex05-feedforward-feedback",
+    "ex06-aggressive-harness"
+  ],
+  "scripts": {
+    "ex01": "npm start --workspace ex01-diverging-responses",
+    "ex02": "npm start --workspace ex02-variance-cascade",
+    "ex03": "npm start --workspace ex03-with-and-without-harness",
+    "ex04": "npm start --workspace ex04-runtime-loop",
+    "ex05": "npm start --workspace ex05-feedforward-feedback",
+    "ex06": "npm start --workspace ex06-aggressive-harness",
+    "typecheck": "tsc -p packages/client && tsc -p ex01-diverging-responses && tsc -p ex02-variance-cascade && tsc -p ex03-with-and-without-harness && tsc -p ex04-runtime-loop && tsc -p ex05-feedforward-feedback && tsc -p ex06-aggressive-harness"
+  }
+}

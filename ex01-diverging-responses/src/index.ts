@@ -1,0 +1,113 @@
+import { client, MODEL, textOf } from "@harness/client";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ex01 — Diverging Responses
+//
+// Conceito (1) e (3): o mesmo prompt, rodado N vezes contra a API CRUA, produz
+// respostas estruturalmente diferentes. Capacidade e variância vêm da mesma
+// fonte. Aqui NÃO há schema enforcement, retry ou validação. É a API nua.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const N = 5;
+
+// Texto deliberadamente ambíguo: nenhum schema foi especificado, então cada
+// execução "decide" quais campos extrair e como nomeá-los.
+const TEXTO_AMBIGUO = `
+Recebi um contato de uma pessoa interessada no produto. Ela falou que trabalha
+numa empresa de logística, acho que de porte médio, e mencionou um orçamento por
+volta de 50 mil — mas não ficou claro se é mensal ou anual. Deixou um e-mail de
+contato e disse que prefere conversar de manhã. Parecia bem animada com a parte
+de automação, e comentou que a decisão final passa pelo chefe dela.
+`.trim();
+
+const PROMPT = `Extraia os dados estruturados deste texto em JSON.\n\n${TEXTO_AMBIGUO}`;
+
+interface RunResult {
+  index: number;
+  raw: string;
+  parsed: Record<string, unknown> | null;
+  keys: string[];
+}
+
+function stripFences(text: string): string {
+  // O modelo às vezes embrulha o JSON em ```json ... ```. Removemos só para
+  // CONSEGUIR medir a divergência — não é validação nem correção de output.
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  return (fenced ? fenced[1] : text).trim();
+}
+
+async function runOnce(index: number): Promise<RunResult> {
+  const message = await client.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    messages: [{ role: "user", content: PROMPT }],
+  });
+
+  const raw = textOf(message);
+  let parsed: Record<string, unknown> | null = null;
+  try {
+    const value = JSON.parse(stripFences(raw));
+    parsed = value && typeof value === "object" ? value : null;
+  } catch {
+    parsed = null; // resposta não-parseável também É um sinal de divergência
+  }
+
+  return { index, raw, parsed, keys: parsed ? Object.keys(parsed) : [] };
+}
+
+function divider(label = ""): string {
+  const line = "─".repeat(78);
+  return label ? `\n${label}\n${line}` : line;
+}
+
+async function main() {
+  console.log(divider(`ex01 · Diverging Responses · modelo: ${MODEL}`));
+  console.log(`Mesmo prompt, ${N} execuções em paralelo, API crua.\n`);
+  console.log("TEXTO DE ENTRADA (ambíguo de propósito):");
+  console.log(TEXTO_AMBIGUO);
+
+  const results = await Promise.all(
+    Array.from({ length: N }, (_, i) => runOnce(i + 1)),
+  );
+
+  // ── Respostas lado a lado ──────────────────────────────────────────────────
+  for (const r of results) {
+    console.log(divider(`RESPOSTA #${r.index}${r.parsed ? "" : "  (não-parseável)"}`));
+    console.log(r.raw.trim());
+  }
+
+  // ── Métrica de divergência ─────────────────────────────────────────────────
+  const allKeys = Array.from(new Set(results.flatMap((r) => r.keys))).sort();
+  const structures = new Set(
+    results.map((r) => (r.parsed ? JSON.stringify(r.keys.slice().sort()) : "ERRO")),
+  );
+
+  console.log(divider("MATRIZ DE PRESENÇA DE CAMPOS"));
+  const header = ["campo".padEnd(22), ...results.map((r) => `#${r.index}`)].join(" ");
+  console.log(header);
+  console.log("─".repeat(header.length));
+  for (const key of allKeys) {
+    const row = [
+      key.padEnd(22),
+      ...results.map((r) => (r.keys.includes(key) ? " ✔" : " ·")),
+    ].join(" ");
+    console.log(row);
+  }
+
+  console.log(divider("DIVERGÊNCIA"));
+  console.log(`Campos distintos vistos no total : ${allKeys.length}`);
+  console.log(`Estruturas (conjuntos de chaves) distintas entre as ${N} respostas : ${structures.size}`);
+  const failures = results.filter((r) => !r.parsed).length;
+  if (failures > 0) console.log(`Respostas não-parseáveis : ${failures}/${N}`);
+  console.log(
+    structures.size === 1 && failures === 0
+      ? "\nDessa vez convergiu. Rode de novo — a variância é termodinâmica, não some.\n"
+      : `\n${structures.size} formatos diferentes para o MESMO input. Sem harness, ` +
+          "você não sabe qual deles vai chegar no seu banco de dados.\n",
+  );
+}
+
+main().catch((err) => {
+  console.error("Falhou:", err);
+  process.exit(1);
+});
