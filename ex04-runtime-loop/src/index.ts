@@ -109,20 +109,30 @@ interface ToolCall {
   args: Record<string, unknown>;
 }
 
-function stripFences(text: string): string {
+/**
+ * Extrai um objeto JSON da resposta, mesmo que o modelo adicione preâmbulo
+ * ("Vou buscar...\n\n{...}") ou cercas ```json. Roteamento robusto faz parte do
+ * harness: o runtime tem que lidar com a forma real que o modelo devolve.
+ */
+function extractJsonObject(text: string): string | null {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  return (fenced ? fenced[1] : text).trim();
+  if (fenced) return fenced[1].trim();
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  return start !== -1 && end > start ? text.slice(start, end + 1) : null;
 }
 
 /** Tool Use check: a resposta do modelo é uma chamada de ferramenta ou texto final? */
 function parseToolCall(text: string): ToolCall | null {
+  const candidate = extractJsonObject(text);
+  if (!candidate) return null; // sem objeto JSON → texto final
   try {
-    const value = JSON.parse(stripFences(text));
+    const value = JSON.parse(candidate);
     if (value && typeof value === "object" && typeof value.tool === "string") {
       return { tool: value.tool, args: value.args ?? {} };
     }
   } catch {
-    /* não é JSON → é texto final */
+    /* objeto malformado → tratamos como texto final */
   }
   return null;
 }

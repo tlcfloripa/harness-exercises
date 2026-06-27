@@ -7,7 +7,9 @@ import { z } from "zod";
 export const LeadSchema = z.object({
   company_size: z.enum(["small", "medium", "large"]),
   budget_brl: z.number(),
-  budget_period: z.enum(["monthly", "annual"]),
+  // nullable de propósito: o período pode genuinamente não constar no texto, e o
+  // harness não pode inventá-lo. Modelar `null` é parte de um contrato honesto.
+  budget_period: z.enum(["monthly", "annual"]).nullable(),
   contact_email: z.string().includes("@"),
   decision_maker: z.boolean(),
 });
@@ -28,7 +30,8 @@ passa pelo chefe dela.
 export const BASE_PROMPT =
   `Extraia as informações deste texto como um objeto com os campos: ` +
   `company_size (small/medium/large), budget_brl (número em reais), ` +
-  `budget_period (monthly/annual), contact_email, decision_maker (true/false).` +
+  `budget_period (monthly/annual, ou null se não informado), contact_email, ` +
+  `decision_maker (true/false).` +
   `\n\n${TEXTO}`;
 
 /** Remove cercas ```json ... ``` quando presentes. */
