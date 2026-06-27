@@ -1,4 +1,4 @@
-import { client, MODEL, textOf } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall } from "@harness/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ex01 — Diverging Responses
@@ -64,6 +64,7 @@ async function runOnce(index: number): Promise<RunResult> {
   // textOf() é um helper que só extrai o texto da resposta (a API devolve um
   // objeto com blocos de conteúdo). Aqui pegamos o texto cru, sem tratar nada.
   const raw = textOf(message);
+  debugApiCall({ messages: [{ role: "user", content: PROMPT }] }, raw, `execução #${index}`);
   let parsed: Record<string, unknown> | null = null;
   try {
     const value = JSON.parse(stripFences(raw));

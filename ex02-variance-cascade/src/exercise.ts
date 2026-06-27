@@ -1,4 +1,4 @@
-import { client, MODEL, textOf } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall } from "@harness/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ex02 — Variance Cascade
@@ -58,22 +58,25 @@ const STEPS: { nome: string; prompt: (entrada: string) => string }[] = [
   },
 ];
 
-async function callStep(prompt: string): Promise<string> {
+async function callStep(prompt: string, label: string): Promise<string> {
   const message = await client.messages.create({
     model: MODEL,
     max_tokens: 512,
     temperature: TEMPERATURE, // exige modelo da família 4.x (Sonnet/Haiku)
     messages: [{ role: "user", content: prompt }],
   });
-  return textOf(message).trim();
+  const raw = textOf(message).trim();
+  debugApiCall({ messages: [{ role: "user", content: prompt }] }, raw, label);
+  return raw;
 }
 
 /** Roda a cadeia completa de 3 passos, sem gate, guardando o output de cada um. */
-async function runChain(): Promise<string[]> {
+async function runChain(chainIndex: number): Promise<string[]> {
+  const letra = String.fromCharCode(65 + chainIndex);
   const outputs: string[] = [];
   let entrada = "";
   for (const step of STEPS) {
-    const out = await callStep(step.prompt(entrada));
+    const out = await callStep(step.prompt(entrada), `cadeia ${letra} · ${step.nome}`);
     outputs.push(out);
     entrada = out; // o fork se propaga: este output vira o próximo prompt
   }
@@ -136,7 +139,7 @@ async function main() {
   console.log(`${CHAINS} execuções da MESMA cadeia de ${STEPS.length} passos, sem gate entre passos.`);
   console.log(`Ponto de partida comum (variância baixa na largada): "${SEED}"\n`);
 
-  const chains = await Promise.all(Array.from({ length: CHAINS }, () => runChain()));
+  const chains = await Promise.all(Array.from({ length: CHAINS }, (_, c) => runChain(c)));
 
   // ── Árvore de divergência: agrupada por passo ───────────────────────────────
   const similaridades: number[] = [];

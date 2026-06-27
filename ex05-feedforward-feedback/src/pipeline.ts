@@ -1,4 +1,4 @@
-import { client, MODEL, textOf } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall } from "@harness/client";
 import { buildSystemPrompt } from "./guides";
 import { runSensors } from "./sensors";
 
@@ -62,6 +62,7 @@ async function runConfig({ label, useGuides, useSensors }: Config) {
     messages: [{ role: "user", content: MENSAGEM_CLIENTE }],
   });
   const raw = textOf(response).trim();
+  debugApiCall({ system, messages: [{ role: "user", content: MENSAGEM_CLIENTE }] }, raw, label);
   console.log(`[Model]   resposta crua:`);
   console.log(
     raw

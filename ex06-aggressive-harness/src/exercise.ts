@@ -1,4 +1,4 @@
-import { client, MODEL, textOf } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall } from "@harness/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ex06 — Aggressive Harness
@@ -62,14 +62,20 @@ RESUMO:
 const SYSTEM_CALIBRADO = `Você é um sumarizador. Resuma o texto em até 4 bullets, claros e úteis.
 Preserve as ressalvas e os trade-offs importantes — eles são o que mais importa para quem vai decidir.`;
 
-async function summarize(system: string): Promise<string> {
+async function summarize(system: string, label: string): Promise<string> {
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 400,
     system,
     messages: [{ role: "user", content: `Resuma:\n\n${TEXTO}` }],
   });
-  return textOf(response).trim();
+  const raw = textOf(response).trim();
+  debugApiCall(
+    { system, messages: [{ role: "user", content: `Resuma:\n\n${TEXTO}` }] },
+    raw,
+    label,
+  );
+  return raw;
 }
 
 // Marcadores que precisam casar como PALAVRA INTEIRA — senão "mas" casaria
@@ -112,8 +118,8 @@ async function main() {
   console.log(TEXTO);
 
   const [restrito, calibrado] = await Promise.all([
-    summarize(SYSTEM_RESTRITO),
-    summarize(SYSTEM_CALIBRADO),
+    summarize(SYSTEM_RESTRITO, "restrito"),
+    summarize(SYSTEM_CALIBRADO, "calibrado"),
   ]);
 
   console.log(divider("MODO RESTRITO · 16 regras rígidas"));

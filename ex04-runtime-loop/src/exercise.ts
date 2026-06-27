@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { client, MODEL, textOf } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall } from "@harness/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ex04 — Runtime Loop
@@ -187,6 +187,7 @@ async function main() {
       messages,
     });
     const reply = textOf(response).trim();
+    debugApiCall({ system: SYSTEM, messages }, reply, `iteração ${i}`);
     box(`[Model Call] resposta: ${reply.replace(/\s+/g, " ").slice(0, 64)}`);
 
     // O modelo "falou": guardamos no histórico (Context Manager)

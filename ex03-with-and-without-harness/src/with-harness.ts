@@ -1,4 +1,4 @@
-import { client, MODEL, textOf } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall } from "@harness/client";
 import { BASE_PROMPT, LeadSchema, Lead, stripFences, summarizeIssues } from "./schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,7 +46,10 @@ export async function extractWithHarness(maxAttempts = 3): Promise<HarnessResult
         messages: [{ role: "user", content }],
       });
 
-      const parsed = JSON.parse(stripFences(textOf(message)));
+      const raw = textOf(message);
+      debugApiCall({ messages: [{ role: "user", content }] }, raw, `tentativa ${attempt}/${maxAttempts}`);
+
+      const parsed = JSON.parse(stripFences(raw));
       const result = LeadSchema.safeParse(parsed);
 
       if (result.success) {

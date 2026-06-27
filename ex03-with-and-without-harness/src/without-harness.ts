@@ -1,4 +1,4 @@
-import { client, MODEL, textOf } from "@harness/client";
+import { client, MODEL, textOf, debugApiCall } from "@harness/client";
 import { BASE_PROMPT } from "./schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15,9 +15,12 @@ export async function extractWithoutHarness(): Promise<unknown> {
     messages: [{ role: "user", content: BASE_PROMPT }],
   });
 
+  const raw = textOf(message);
+  debugApiCall({ messages: [{ role: "user", content: BASE_PROMPT }] }, raw, "sem harness");
+
   // Pode lançar (prosa/cercas) ou retornar algo fora do contrato. Tudo bem:
   // é exatamente o que acontece quando não há estrutura ao redor do modelo.
-  return JSON.parse(textOf(message));
+  return JSON.parse(raw);
 }
 
 // Permite rodar isolado: `npm run without`

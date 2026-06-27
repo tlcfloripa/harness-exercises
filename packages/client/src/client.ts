@@ -52,3 +52,36 @@ export function textOf(message: Anthropic.Message): string {
     .map((b) => b.text)
     .join("");
 }
+
+// ── Debug: loga a REQUISIÇÃO e a RESPOSTA crua de cada chamada à API ──────────
+// Em cinza + dim (aspecto "disabled"), para não competir com a saída principal
+// do exercício. É só instrumentação para inspecionar, a cada tentativa, o que
+// foi enviado e o que a API devolveu — NÃO valida, NÃO corrige e NÃO altera o
+// comportamento do modelo nem do harness ao redor.
+const DIM_GRAY = "\x1b[38;5;245m";
+const RESET = "\x1b[0m";
+
+interface DebugRequest {
+  system?: string;
+  messages: ReadonlyArray<{ role: string; content: unknown }>;
+}
+
+export function debugApiCall(req: DebugRequest, raw: string, contexto?: string): void {
+  const rotulo = contexto ? ` · ${contexto}` : "";
+  const linhas: string[] = ["── requisição ──"];
+
+  if (req.system) {
+    linhas.push("[system]", ...req.system.split("\n"));
+  }
+  for (const m of req.messages) {
+    const content =
+      typeof m.content === "string" ? m.content : JSON.stringify(m.content, null, 2);
+    linhas.push(`[${m.role}]`, ...content.split("\n"));
+  }
+
+  linhas.push("── resposta ──", ...(raw.trim() || "(resposta vazia)").split("\n"));
+
+  const corpo = linhas.map((l) => `${DIM_GRAY}  ┊ ${l}${RESET}`).join("\n");
+  console.log(`${DIM_GRAY}  ┌ [debug] chamada à API${rotulo}${RESET}`);
+  console.log(corpo);
+}
